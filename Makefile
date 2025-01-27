@@ -4,7 +4,7 @@
 LIBRARY_NAME = cenv
 PREFIX = /usr/local
 INCLUDE_DIR = $(PREFIX)/include
-HEADER = cenv.h
+HEADER = include/cenv.h
 UNAME := $(shell uname)
 
 
@@ -38,10 +38,11 @@ install:
 	@echo "Installing header file..."
 	$(MKDIR_CMD) $(INCLUDE_DIR)
 	$(INSTALL_CMD) $(HEADER) $(INCLUDE_DIR)
+	@echo "Installation complete..."
 
 uninstall:
 	@echo "Uninstalling header file..."
-	$(RM_CMD) $(INCLUDE_DIR)\$(HEADER)
+	$(RM_CMD) $(INCLUDE_DIR)/cenv.h
 
 clean:
 	@echo "Nothing to clean."
