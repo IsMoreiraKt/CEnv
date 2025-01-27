@@ -68,4 +68,26 @@ static int dotenv_init(int initial_capacity) {
   return 0;
 }
 
+/**
+ * @brief Resizes the internal array of environment variables.
+ *
+ * Doubles the capacity to accommodate more variables when needed.
+ *
+ * @return 0 on success, -1 if memory allocation fails.
+ */
+static int dotenv_resize() {
+  int new_capacity = ctx.capacity * 2;
+  env_var *new_vars = realloc(ctx.vars, sizeof(env_var) * new_capacity);
+
+  if (!new_vars) {
+    perror("Failed to resize environment variable array.");
+    return -1;
+  }
+
+  ctx.vars = new_vars;
+  ctx.capacity = new_capacity;
+
+  return 0;
+}
+
 #endif // CENV_H
