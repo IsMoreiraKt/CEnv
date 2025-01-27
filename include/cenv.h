@@ -29,4 +29,16 @@ typedef struct {
   char *value; ///< The value associated with the key.
 } env_var;
 
+/**
+ * @struct dotenv_context
+ * @brief Internal structure to manage environment variables.
+ *
+ * Holds the loaded variables, their count, and the allocated capacity.
+ */
+typedef struct {
+  env_var *vars; ///< Dynamic array of environment variables.
+  int var_count; ///< Number of currently loaded variables.
+  int capacity;  ///< Capacity of the dynamic array.
+} dotenv_context;
+
 #endif // CENV_H
