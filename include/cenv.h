@@ -160,4 +160,22 @@ int dotenv_load(const char *filename) {
   return 0;
 }
 
+/**
+ * @brief Retrieves the value associated with a specific key.
+ *
+ * Searches for the value of a key previously loaded from the `.env` file.
+ *
+ * @param key The key of the variable to search for.
+ * @return The value associated with the key, or `NULL` if the key is not found.
+ */
+const char *dotenv_get(const char *key) {
+  for (int i = 0; i < ctx.var_count; i++) {
+    if (strcmp(ctx.vars[i].key, key) == 0) {
+      return ctx.vars[i].value;
+    }
+  }
+
+  return NULL;
+}
+
 #endif // CENV_H
