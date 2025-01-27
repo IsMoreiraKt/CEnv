@@ -8,6 +8,8 @@
 
 CEnv is a C library that makes it easy to load environment variables from .env files and resolve variables within other values. It is ideal for configuring applications dynamically and securely, especially in development environments.
 
+<br>
+
 ## Installing CEnv
 To install CEnv, clone the repository and use the Makefile to copy the header file to the includes directory.
 
