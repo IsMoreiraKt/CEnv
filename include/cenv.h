@@ -178,4 +178,24 @@ const char *dotenv_get(const char *key) {
   return NULL;
 }
 
+/**
+ * @brief Frees the memory allocated for loaded environment variables.
+ *
+ * Releases the memory allocated for keys, values, and the internal context.
+ */
+void dotenv_free() {
+  if (ctx.vars) {
+    for (int i = 0; i < ctx.var_count; i++) {
+      free(ctx.vars[i].key);
+      free(ctx.vars[i].value);
+    }
+
+    free(ctx.vars);
+
+    ctx.vars = NULL;
+    ctx.var_count = 0;
+    ctx.capacity = 0;
+  }
+}
+
 #endif // CENV_H
