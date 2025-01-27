@@ -129,12 +129,94 @@ static int dotenv_resize() {
   return 0;
 }
 
+/**
+ * @brief Retrieves the value associated with a specific key.
+ *
+ * Searches for the value of a key previously loaded from the `.env` file.
+ *
+ * @param key The key of the variable to search for.
+ * @return The value associated with the key, or `NULL` if the key is not found.
+ */
+const char *dotenv_get(const char *key) {
+  pthread_mutex_lock(&ctx.mutex);
+
+  for (int i = 0; i < ctx.var_count; i++) {
+    if (strcmp(ctx.vars[i].key, key) == 0) {
+      pthread_mutex_unlock(&ctx.mutex);
+      return ctx.vars[i].value;
+    }
+  }
+
+  pthread_mutex_unlock(&ctx.mutex);
+  return NULL;
+}
+
+/**
+ * @brief Replaces occurrences of `${var}` in a string with their corresponding
+ * values.
+ *
+ * Dynamically allocates a new string with the resolved variables.
+ *
+ * @param str The input string with potential `${var}` placeholders.
+ * @return A new string with the variables resolved, or NULL on error.
+ */
+static char *resolve_variables(const char *str) {
+  if (!str)
+    return NULL;
+
+  char *result = malloc(strlen(str) + 1);
+
+  if (!result)
+    return NULL;
+
+  result[0] = '\0';
+
+  const char *current = str;
+
+  while (*current) {
+    if (strncmp(current, "${", 2) == 0) {
+      // Find the closing '}'
+      const char *end = strchr(current, '}');
+
+      if (!end)
+        break;
+
+      // Extract the variable name
+      char var_name[256];
+      size_t var_len = end - current - 2;
+
+      if (var_len >= sizeof(var_name))
+        var_len = sizeof(var_name) - 1;
+
+      strncpy(var_name, current + 2, var_len);
+      var_name[var_len] = '\0';
+
+      // Lookup the variable value
+      const char *value = dotenv_get(var_name);
+
+      if (value) {
+        strcat(result, value);
+      }
+
+      current = end + 1;
+    } else {
+      // Append the current character
+      size_t len = strlen(result);
+      result[len] = *current;
+      result[len + 1] = '\0';
+      current++;
+    }
+  }
+
+  return result;
+}
+
 /// Maximum length of a line in the .env file.
 #define MAX_LINE_LENGTH 1024
 
 /**
  * @brief Loads environment variables from a `.env` file using a stream
- * approach.
+ * approach, with variable interpolation.
  *
  * Processes the file line by line, storing key-value pairs without loading the
  * entire file into memory.
@@ -173,6 +255,7 @@ int dotenv_load(const char *filename) {
       continue;
 
     char *delimiter = strchr(line, '=');
+
     if (!delimiter)
       continue;
 
@@ -183,18 +266,23 @@ int dotenv_load(const char *filename) {
     if (key[0] == '\0')
       continue;
 
+    // Resolve interpolated variables in value
+    char *resolved_value = resolve_variables(value);
+
     pthread_mutex_lock(&ctx.mutex);
 
     if (ctx.var_count >= ctx.capacity) {
       if (dotenv_resize() == -1) {
         pthread_mutex_unlock(&ctx.mutex);
         fclose(file);
+        free(resolved_value);
         return -1;
       }
     }
 
     ctx.vars[ctx.var_count].key = strdup(key);
-    ctx.vars[ctx.var_count].value = strdup(value);
+    ctx.vars[ctx.var_count].value =
+        resolved_value ? resolved_value : strdup(value);
 
     if (!ctx.vars[ctx.var_count].key || !ctx.vars[ctx.var_count].value) {
       perror("Failed to allocate memory for key or value.");
@@ -209,28 +297,6 @@ int dotenv_load(const char *filename) {
 
   fclose(file);
   return 0;
-}
-
-/**
- * @brief Retrieves the value associated with a specific key.
- *
- * Searches for the value of a key previously loaded from the `.env` file.
- *
- * @param key The key of the variable to search for.
- * @return The value associated with the key, or `NULL` if the key is not found.
- */
-const char *dotenv_get(const char *key) {
-  pthread_mutex_lock(&ctx.mutex);
-
-  for (int i = 0; i < ctx.var_count; i++) {
-    if (strcmp(ctx.vars[i].key, key) == 0) {
-      pthread_mutex_unlock(&ctx.mutex);
-      return ctx.vars[i].value;
-    }
-  }
-
-  pthread_mutex_unlock(&ctx.mutex);
-  return NULL;
 }
 
 /**
