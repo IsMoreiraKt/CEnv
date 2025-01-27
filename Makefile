@@ -1,5 +1,5 @@
 #############################
-#				GLOBAL SETTINGS			#
+#      GLOBAL SETTINGS      #
 #############################
 LIBRARY_NAME = cenv
 PREFIX = /usr/local
@@ -9,7 +9,7 @@ UNAME := $(shell uname)
 
 
 #############################
-#		COMPATIBILITY SETTINGS	#
+#  COMPATIBILITY SETTINGS   #
 #############################
 ifeq ($(UNAME), Linux)
 	INSTALL_CMD = cp
@@ -32,7 +32,7 @@ endif
 
 
 #############################
-#						RULES						#
+#           RULES           #
 #############################
 install:
 	@echo "Installing header file..."
@@ -43,6 +43,7 @@ install:
 uninstall:
 	@echo "Uninstalling header file..."
 	$(RM_CMD) $(INCLUDE_DIR)/cenv.h
+	@echo "Uninstall complete..."
 
 clean:
 	@echo "Nothing to clean."

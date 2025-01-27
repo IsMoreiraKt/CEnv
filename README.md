@@ -99,5 +99,12 @@ int main() {
 }
 ```
 
+## How to Compile
+Once installed, simply add the include directory to your compiler's flags, and you'll be ready to compile:
+
+```bash
+gcc -I/usr/local/include -o program main.c
+```
+
 ## Licence
 This project is licensed under the LGPL-2.1 license. See the [LICENSE](./LICENSE) file for more details.
