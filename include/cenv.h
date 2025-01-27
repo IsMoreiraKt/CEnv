@@ -76,6 +76,24 @@ static char *trim_whitespace(char *str) {
 }
 
 /**
+ * @brief Removes the comment from a line (everything after #).
+ *
+ * Modifies the string in place, removing everything after the #.
+ *
+ * @param str The string to process.
+ * @return The string without the comment (everything after #).
+ */
+static char *remove_comment(char *str) {
+  char *comment_pos = strchr(str, '#');
+
+  if (comment_pos) {
+    *comment_pos = '\0';  // Terminate the string before the #
+  }
+
+  return str;
+}
+
+/**
  * @brief Initializes the internal dotenv context.
  *
  * Ensures the internal context is ready for use.
@@ -253,6 +271,9 @@ int dotenv_load(const char *filename) {
 
     if (line[0] == '#' || line[0] == '\0')
       continue;
+
+    // Remove the comment if present
+    remove_comment(line);
 
     char *delimiter = strchr(line, '=');
 
