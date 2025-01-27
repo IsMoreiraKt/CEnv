@@ -40,6 +40,42 @@ typedef struct {
 static dotenv_context ctx = {NULL, 0, 0, PTHREAD_MUTEX_INITIALIZER};
 
 /**
+ * @brief Removes leading and trailing whitespace from a string.
+ *
+ * Modifies the string in place to remove any spaces, tabs, or newline
+ * characters from the beginning and the end.
+ *
+ * @param str The string to trim.
+ * @return A pointer to the trimmed string.
+ */
+static char *trim_whitespace(char *str) {
+  char *end;
+
+  // Trim leading spaces
+  while (*str == ' ' || *str == '\t' || *str == '\n' || *str == '\r') {
+    str++;
+  }
+
+  // If the string is now empty, return it
+  if (*str == '\0') {
+    return str;
+  }
+
+  // Trim trailing spaces
+  end = str + strlen(str) - 1;
+
+  while (end > str &&
+         (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r')) {
+    end--;
+  }
+
+  // Null-terminate the string
+  *(end + 1) = '\0';
+
+  return str;
+}
+
+/**
  * @brief Initializes the internal dotenv context.
  *
  * Ensures the internal context is ready for use.
@@ -141,8 +177,11 @@ int dotenv_load(const char *filename) {
       continue;
 
     *delimiter = '\0';
-    char *key = line;
-    char *value = delimiter + 1;
+    char *key = trim_whitespace(line);
+    char *value = trim_whitespace(delimiter + 1);
+
+    if (key[0] == '\0')
+      continue;
 
     pthread_mutex_lock(&ctx.mutex);
 
