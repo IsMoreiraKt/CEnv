@@ -18,6 +18,16 @@
 #ifndef CENV_H
 #define CENV_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifdef _WIN32
+  #define ENV_NEWLINE "\r\n" ///< Windows newline
+#else
+  #define ENV_NEWLINE "\n"   ///< Linux/macOS newline
+#endif
+
 /**
  * @struct env_var
  * @brief Structure representing an environment variable.
@@ -117,14 +127,14 @@ int dotenv_load(const char *filename) {
   char line[MAX_LINE_LENGTH];
 
   while (fgets(line, sizeof(line), file)) {
-    // Skip comments and empty lines
-    if (line[0] == '#' || line[0] == '\n')
-      continue;
-
     // Remove trailing newline
-    char *newline_pos = strchr(line, '\n');
+    char *newline_pos = strstr(line, ENV_NEWLINE);
     if (newline_pos)
       *newline_pos = '\0';
+
+    // Skip comments and empty lines
+    if (line[0] == '#' || line[0] == '\0')
+      continue;
 
     // Split key and value
     char *delimiter = strchr(line, '=');
