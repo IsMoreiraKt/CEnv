@@ -41,4 +41,31 @@ typedef struct {
   int capacity;  ///< Capacity of the dynamic array.
 } dotenv_context;
 
+/// Internal context to manage the loaded variables (hidden from the user).
+static dotenv_context ctx = {NULL, 0, 0};
+
+/**
+ * @brief Initializes the internal dotenv context.
+ *
+ * Ensures the internal context is ready for use.
+ *
+ * @param initial_capacity Initial capacity for the environment variable array.
+ * @return 0 on success, -1 if memory allocation fails.
+ */
+static int dotenv_init(int initial_capacity) {
+  if (ctx.vars == NULL) { // Only initialize if not already done
+    ctx.vars = malloc(sizeof(env_var) * initial_capacity);
+
+    if (!ctx.vars) {
+      perror("Failed to allocate memory for environment variables.");
+      return -1;
+    }
+
+    ctx.var_count = 0;
+    ctx.capacity = initial_capacity;
+  }
+
+  return 0;
+}
+
 #endif // CENV_H
