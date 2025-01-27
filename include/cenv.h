@@ -40,10 +40,12 @@ typedef struct {
 static dotenv_context ctx = {NULL, 0, 0, PTHREAD_MUTEX_INITIALIZER};
 
 /**
- * @brief Removes leading and trailing whitespace from a string.
+ * @brief Removes leading and trailing whitespace from a string,
+ *        and also removes leading and trailing double quotes if present.
  *
  * Modifies the string in place to remove any spaces, tabs, or newline
- * characters from the beginning and the end.
+ * characters from the beginning and the end. It also removes quotes at the
+ * start and end of the string, if they exist.
  *
  * @param str The string to trim.
  * @return A pointer to the trimmed string.
@@ -72,22 +74,43 @@ static char *trim_whitespace(char *str) {
   // Null-terminate the string
   *(end + 1) = '\0';
 
+  // Remove leading and trailing quotes if present
+  if (*str == '"') {
+    str++;
+  }
+
+  if (*end == '"') {
+    *end = '\0';
+  }
+
   return str;
 }
 
 /**
- * @brief Removes the comment from a line (everything after #).
- *
- * Modifies the string in place, removing everything after the #.
+ * @brief Removes the comment from a line (everything after #), but respects
+ * comments inside quoted strings.
  *
  * @param str The string to process.
- * @return The string without the comment (everything after #).
+ * @return The string without the comment (everything after #), unless inside
+ * quotes.
  */
 static char *remove_comment(char *str) {
-  char *comment_pos = strchr(str, '#');
+  char *comment_pos = NULL;
+  int inside_quotes = 0;
+
+  for (char *current = str; *current != '\0'; current++) {
+    if (*current == '"') {
+      inside_quotes = !inside_quotes; // Toggle inside_quotes state
+    }
+
+    if (!inside_quotes && *current == '#') {
+      comment_pos = current;
+      break;
+    }
+  }
 
   if (comment_pos) {
-    *comment_pos = '\0';  // Terminate the string before the #
+    *comment_pos = '\0'; // Terminate the string before the #
   }
 
   return str;
