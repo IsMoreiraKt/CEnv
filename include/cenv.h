@@ -90,4 +90,74 @@ static int dotenv_resize() {
   return 0;
 }
 
+/// Maximum length of a line in the .env file.
+#define MAX_LINE_LENGTH 1024
+
+/**
+ * @brief Loads environment variables from a `.env` file.
+ *
+ * Reads a `.env` file line by line, ignoring comments and empty lines,
+ * and stores the variables as key-value pairs.
+ *
+ * @param filename Path to the `.env` file.
+ * @return 0 if the file is successfully loaded, -1 if the file cannot be
+ * opened.
+ */
+int dotenv_load(const char *filename) {
+  if (dotenv_init(10) == -1)
+    return -1;
+
+  FILE *file = fopen(filename, "r");
+
+  if (!file) {
+    perror("Failed to open .env file.");
+    return -1;
+  }
+
+  char line[MAX_LINE_LENGTH];
+
+  while (fgets(line, sizeof(line), file)) {
+    // Skip comments and empty lines
+    if (line[0] == '#' || line[0] == '\n')
+      continue;
+
+    // Remove trailing newline
+    char *newline_pos = strchr(line, '\n');
+    if (newline_pos)
+      *newline_pos = '\0';
+
+    // Split key and value
+    char *delimiter = strchr(line, '=');
+    if (!delimiter)
+      continue;
+
+    *delimiter = '\0';
+    char *key = line;
+    char *value = delimiter + 1;
+
+    // Resize if capacity is exceeded
+    if (ctx.var_count >= ctx.capacity) {
+      if (dotenv_resize() == -1) {
+        fclose(file);
+        return -1;
+      }
+    }
+
+    // Store the key-value pair
+    ctx.vars[ctx.var_count].key = strdup(key);
+    ctx.vars[ctx.var_count].value = strdup(value);
+
+    if (!ctx.vars[ctx.var_count].key || !ctx.vars[ctx.var_count].value) {
+      perror("Failed to allocate memory for key or value.");
+      fclose(file);
+      return -1;
+    }
+
+    ctx.var_count++;
+  }
+
+  fclose(file);
+  return 0;
+}
+
 #endif // CENV_H
