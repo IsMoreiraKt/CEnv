@@ -1,31 +1,15 @@
-/**
- * @file cenv.h
- * @brief Library for loading environment variables from `.env` files.
- *
- * This project is part of a free software library licensed under the GNU Lesser
- * General Public License (LGPL).
- *
- * Copyright (C) 2025 Ismael Moreira <ismaelmoreirakt@gmail.com>
- *
- * This library is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
- * details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, see <https://www.gnu.org/licenses/>.
- */
 #ifndef CENV_H
 #define CENV_H
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #ifdef _WIN32
-  #define ENV_NEWLINE "\r\n" ///< Windows newline
+#define ENV_NEWLINE "\r\n" ///< Windows newline
 #else
-  #define ENV_NEWLINE "\n"   ///< Linux/macOS newline
+#define ENV_NEWLINE "\n" ///< Linux/macOS newline
 #endif
 
 /**
@@ -46,13 +30,14 @@ typedef struct {
  * Holds the loaded variables, their count, and the allocated capacity.
  */
 typedef struct {
-  env_var *vars; ///< Dynamic array of environment variables.
-  int var_count; ///< Number of currently loaded variables.
-  int capacity;  ///< Capacity of the dynamic array.
+  env_var *vars;         ///< Dynamic array of environment variables.
+  int var_count;         ///< Number of currently loaded variables.
+  int capacity;          ///< Capacity of the dynamic array.
+  pthread_mutex_t mutex; ///< Mutex to ensure thread-safe access.
 } dotenv_context;
 
 /// Internal context to manage the loaded variables (hidden from the user).
-static dotenv_context ctx = {NULL, 0, 0};
+static dotenv_context ctx = {NULL, 0, 0, PTHREAD_MUTEX_INITIALIZER};
 
 /**
  * @brief Initializes the internal dotenv context.
@@ -63,11 +48,14 @@ static dotenv_context ctx = {NULL, 0, 0};
  * @return 0 on success, -1 if memory allocation fails.
  */
 static int dotenv_init(int initial_capacity) {
+  pthread_mutex_lock(&ctx.mutex);
+
   if (ctx.vars == NULL) { // Only initialize if not already done
     ctx.vars = malloc(sizeof(env_var) * initial_capacity);
 
     if (!ctx.vars) {
       perror("Failed to allocate memory for environment variables.");
+      pthread_mutex_unlock(&ctx.mutex);
       return -1;
     }
 
@@ -75,6 +63,7 @@ static int dotenv_init(int initial_capacity) {
     ctx.capacity = initial_capacity;
   }
 
+  pthread_mutex_unlock(&ctx.mutex);
   return 0;
 }
 
@@ -86,17 +75,21 @@ static int dotenv_init(int initial_capacity) {
  * @return 0 on success, -1 if memory allocation fails.
  */
 static int dotenv_resize() {
+  pthread_mutex_lock(&ctx.mutex);
+
   int new_capacity = ctx.capacity * 2;
   env_var *new_vars = realloc(ctx.vars, sizeof(env_var) * new_capacity);
 
   if (!new_vars) {
     perror("Failed to resize environment variable array.");
+    pthread_mutex_unlock(&ctx.mutex);
     return -1;
   }
 
   ctx.vars = new_vars;
   ctx.capacity = new_capacity;
 
+  pthread_mutex_unlock(&ctx.mutex);
   return 0;
 }
 
@@ -104,10 +97,11 @@ static int dotenv_resize() {
 #define MAX_LINE_LENGTH 1024
 
 /**
- * @brief Loads environment variables from a `.env` file.
+ * @brief Loads environment variables from a `.env` file using a stream
+ * approach.
  *
- * Reads a `.env` file line by line, ignoring comments and empty lines,
- * and stores the variables as key-value pairs.
+ * Processes the file line by line, storing key-value pairs without loading the
+ * entire file into memory.
  *
  * @param filename Path to the `.env` file.
  * @return 0 if the file is successfully loaded, -1 if the file cannot be
@@ -127,16 +121,21 @@ int dotenv_load(const char *filename) {
   char line[MAX_LINE_LENGTH];
 
   while (fgets(line, sizeof(line), file)) {
-    // Remove trailing newline
     char *newline_pos = strstr(line, ENV_NEWLINE);
-    if (newline_pos)
-      *newline_pos = '\0';
 
-    // Skip comments and empty lines
+    if (newline_pos) {
+      *newline_pos = '\0';
+    } else {
+      char *single_newline = strchr(line, '\n');
+
+      if (single_newline) {
+        *single_newline = '\0';
+      }
+    }
+
     if (line[0] == '#' || line[0] == '\0')
       continue;
 
-    // Split key and value
     char *delimiter = strchr(line, '=');
     if (!delimiter)
       continue;
@@ -145,25 +144,28 @@ int dotenv_load(const char *filename) {
     char *key = line;
     char *value = delimiter + 1;
 
-    // Resize if capacity is exceeded
+    pthread_mutex_lock(&ctx.mutex);
+
     if (ctx.var_count >= ctx.capacity) {
       if (dotenv_resize() == -1) {
+        pthread_mutex_unlock(&ctx.mutex);
         fclose(file);
         return -1;
       }
     }
 
-    // Store the key-value pair
     ctx.vars[ctx.var_count].key = strdup(key);
     ctx.vars[ctx.var_count].value = strdup(value);
 
     if (!ctx.vars[ctx.var_count].key || !ctx.vars[ctx.var_count].value) {
       perror("Failed to allocate memory for key or value.");
+      pthread_mutex_unlock(&ctx.mutex);
       fclose(file);
       return -1;
     }
 
     ctx.var_count++;
+    pthread_mutex_unlock(&ctx.mutex);
   }
 
   fclose(file);
@@ -179,12 +181,16 @@ int dotenv_load(const char *filename) {
  * @return The value associated with the key, or `NULL` if the key is not found.
  */
 const char *dotenv_get(const char *key) {
+  pthread_mutex_lock(&ctx.mutex);
+
   for (int i = 0; i < ctx.var_count; i++) {
     if (strcmp(ctx.vars[i].key, key) == 0) {
+      pthread_mutex_unlock(&ctx.mutex);
       return ctx.vars[i].value;
     }
   }
 
+  pthread_mutex_unlock(&ctx.mutex);
   return NULL;
 }
 
@@ -194,6 +200,8 @@ const char *dotenv_get(const char *key) {
  * Releases the memory allocated for keys, values, and the internal context.
  */
 void dotenv_free() {
+  pthread_mutex_lock(&ctx.mutex);
+
   if (ctx.vars) {
     for (int i = 0; i < ctx.var_count; i++) {
       free(ctx.vars[i].key);
@@ -206,6 +214,8 @@ void dotenv_free() {
     ctx.var_count = 0;
     ctx.capacity = 0;
   }
+
+  pthread_mutex_unlock(&ctx.mutex);
 }
 
 #endif // CENV_H
